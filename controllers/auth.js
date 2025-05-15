@@ -1,153 +1,62 @@
-import prisma from "../prisma/client";
-import { hashPassword } from "../utils";
+import { hashPassword, comparePassword, generateToken } from "../utils/index.js";
+import prisma from "../prisma/client.js";
 
-// Dashboard Stats
-export const getDashboardStats = async (req, res) => {
-  try {
-    const totalUsers = await prisma.user.count();
-    const totalStores = await prisma.store.count();
-    const totalRatings = await prisma.rating.count();
+export const register = async () => {
+  const { name, email, address, password } = req.body;
 
-    res.json({ totalUsers, totalStores, totalRatings });
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching dashboard stats" });
+  if (!name || !email || !address || !password) {
+    return res.status(400).json({ message: "All fields are required" });
   }
-};
 
-// Add New User
-export const addUser = async (req, res) => {
-  const { name, email, password, address, role } = req.body;
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists)
+    return res.status(400).json({ message: "Email already registered" });
 
-  try {
-    const userExists = await prisma.user.findUnique({ where: { email } });
+  const hashed = await hashPassword(password);
 
-    if (userExists) {
-      return res.status(400).json({ error: "User already exists" });
-    }
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      address,
+      password: hashed,
+      role: "user",
+    },
+  });
 
-    const hashedPassword = await hashPassword(password);
+  const token = generateToken({ user_id: user.user_id, role: user.role });
 
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        address,
-        password: hashedPassword,
-        role,
-      },
-    });
-
-    res.status(201).json({ message: "User created", user: newUser });
-  } catch (error) {
-    res.status(500).json({ error: "Error creating user" });
-  }
-};
-
-// Get All Users with Filters
-export const getUsers = async (req, res) => {
-  const {
-    name = "",
-    email = "",
-    address = "",
-    role,
-  } = req.query;
-
-  try {
-    const users = await prisma.user.findMany({
-      where: {
-        name: { contains: name, mode: "insensitive" },
-        email: { contains: email, mode: "insensitive" },
-        address: { contains: address, mode: "insensitive" },
-        ...(role && { role }),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        address: true,
-        role: true,
-      },
-    });
-
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching users" });
-  }
-};
-
-// Get User Details by ID
-export const getUserDetails = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id },
-      include: {
-        Store: {
-          include: {
-            ratings: true,
-          },
-        },
-      },
-    });
-
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const ratingAvg =
-      user.role === "owner" && user.Store
-        ? user.Store.ratings.reduce((acc, r) => acc + r.rating, 0) /
-            user.Store.ratings.length || 0
-        : null;
-
-    res.json({
-      id: user.id,
+  res.status(201).json({
+    token,
+    user: {
+      id: user.user_id,
       name: user.name,
       email: user.email,
-      address: user.address,
       role: user.role,
-      rating: ratingAvg,
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching user details" });
-  }
+    },
+  });
 };
 
-// Get All Stores with Filters
-export const getStores = async (req, res) => {
-  const {
-    name = "",
-    email = "",
-    address = "",
-  } = req.query;
+export const login = async () => {
+  const { email, password } = req.body;
 
-  try {
-    const stores = await prisma.store.findMany({
-      where: {
-        name: { contains: name, mode: "insensitive" },
-        email: { contains: email, mode: "insensitive" },
-        address: { contains: address, mode: "insensitive" },
-      },
-      include: {
-        ratings: true,
-      },
-    });
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user)
+    return res.status(404).json({ message: "Invalid email or password" });
 
-    const storeList = stores.map((store) => {
-      const avgRating =
-        store.ratings.reduce((acc, r) => acc + r.rating, 0) /
-          store.ratings.length || 0;
+  const isValid = await comparePassword(password, user.password);
+  if (!isValid)
+    return res.status(401).json({ message: "Invalid email or password" });
 
-      return {
-        id: store.id,
-        name: store.name,
-        email: store.email,
-        address: store.address,
-        rating: avgRating.toFixed(2),
-      };
-    });
+  const token = generateToken({ user_id: user.user_id, role: user.role });
 
-    res.json(storeList);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching stores" });
-  }
+  res.status(200).json({
+    token,
+    user: {
+      id: user.user_id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  });
 };
