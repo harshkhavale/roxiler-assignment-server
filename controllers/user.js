@@ -116,3 +116,6 @@ export const updateUser = async (req, res) => {
     res.status(500).json({ error: "Error updating user" });
   }
 };
+
+export const addUser = async (req, res) => {
+};
