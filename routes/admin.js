@@ -3,7 +3,7 @@ import {
   getDashboardStats
 } from '../controllers/admin.js';
 import { authenticate } from '../middlewares/auth.js';
-import { authorize } from '../middlewares/role.middleware.js';
+import { authorize } from '../middlewares/role.js';
 
 const router = express.Router();
 
