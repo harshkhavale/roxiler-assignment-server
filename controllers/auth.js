@@ -1,7 +1,11 @@
-import { hashPassword, comparePassword, generateToken } from "../utils/index.js";
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+} from "../utils/index.js";
 import prisma from "../prisma/client.js";
 
-export const register = async () => {
+export const register = async (req, res) => {
   const { name, email, address, password } = req.body;
 
   if (!name || !email || !address || !password) {
@@ -37,7 +41,7 @@ export const register = async () => {
   });
 };
 
-export const login = async () => {
+export const login = async (req, res) => {
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });

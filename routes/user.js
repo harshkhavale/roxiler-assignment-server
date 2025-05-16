@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  addUser,
   getAllUsers,
   getUserById,
   updatePassword,
@@ -16,5 +17,6 @@ router.get("/:id", authenticate, authorize(["admin"]), getUserById);
 
 router.put("/password", authenticate, updatePassword);
 router.put("/:id", authenticate, authorize(["admin"]), updateUser);
+router.post("/", authenticate, authorize(["admin"]), addUser);
 
 export default router;
