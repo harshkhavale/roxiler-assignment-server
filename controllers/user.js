@@ -118,4 +118,29 @@ export const updateUser = async (req, res) => {
 };
 
 export const addUser = async (req, res) => {
+  const { name, email, password, address, role } = req.body;
+
+  try {
+    const userExists = await prisma.user.findUnique({ where: { email } });
+
+    if (userExists) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        address,
+        password: hashedPassword,
+        role,
+      },
+    });
+
+    res.status(201).json({ message: "User created", user: newUser });
+  } catch (error) {
+    res.status(500).json({ error: "Error creating user" });
+  }
 };
